@@ -1,3 +1,5 @@
+<img width="861" height="581" alt="image" src="https://github.com/user-attachments/assets/c32a8e44-22ca-4cff-babb-1083f177cbb7" />
+
 ## Instalacja
 
 *   Pobierz wtyczkę (https://github.com/Rawdogs-pl/chrome-ai-text-fixer/archive/refs/heads/main.zip) i rozpakuj pobrany plik zip.
