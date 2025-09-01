@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Opcje - Popraw Język</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; width: 450px; background-color: #f4f4f9; color: #333; }
+        h2 { color: #4285F4; border-bottom: 2px solid #4285F4; padding-bottom: 5px;}
+        p { font-size: 14px; line-height: 1.5; }
+        label { display: block; margin-top: 20px; font-weight: bold; }
+        input[type="password"] { width: 100%; padding: 10px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background-color: #4285F4; color: white; border: none; padding: 12px 20px; cursor: pointer; margin-top: 20px; border-radius: 5px; font-size: 16px; transition: background-color 0.3s; }
+        button:hover { background-color: #357ae8; }
+        #status { margin-top: 15px; color: #4CAF50; font-weight: bold; height: 20px; }
+    </style>
+</head>
+<body>
+<h2>Ustawienia rozszerzenia "Popraw Język"</h2>
+<p>
+    Wklej swój klucz API z Google AI Studio, aby rozszerzenie mogło działać.
+    Klucz jest przechowywany lokalnie i bezpiecznie w Twojej przeglądarce.
+</p>
+
+<label for="apiKey">Klucz API Gemini:</label>
+<input type="password" id="apiKey" placeholder="Wklej swój klucz API tutaj">
+
+<button id="save">Zapisz</button>
+<div id="status"></div>
+
+<script src="options.js"></script>
+</body>
+</html>

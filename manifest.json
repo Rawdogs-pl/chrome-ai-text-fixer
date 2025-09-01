@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Gemini - Popraw Język",
+  "description": "Zaznacz tekst, kliknij prawym przyciskiem myszy i popraw jego gramatykę oraz styl z pomocą Gemini.",
+  "version": "1.0",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "scripting"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_icon": "icon.png"
+  },
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "icons": {
+    "128": "icon.png"
+  },
+  "options_page": "options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["modal.css", "modal.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "commands": {
+    "correct-language-shortcut": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K",
+        "mac": "Command+Shift+K"
+      },
+      "description": "Popraw zaznaczony tekst z Gemini"
+    }
+  }
+}
