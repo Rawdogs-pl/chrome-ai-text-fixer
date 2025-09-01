@@ -4,9 +4,11 @@
 *   W przeglądarce Chrome wejdź na stronę `chrome://extensions`.
 *   Włącz tryb dewelopera (przełącznik znajduje się w prawym górnym rogu strony).
 *   Kliknij „Załaduj rozpakowane” (przycisk w lewym górnym rogu strony) i wskaż folder z punktu 1.
-*   Wtyczka zostanie zainstalowana.
-
+*   Wtyczka zostanie zainstalowana. Aby z niej korzystać, potrzebujesz klucza API Gemini. Możesz go wygenerować pod adresem https://aistudio.google.com/apikey. Wygenerowany klucz wprowadzić w ustawieniach wtyczki.
+  
 ## Demo
-_kliknij play by obejrzeć film_
 
 https://github.com/user-attachments/assets/460dbd03-ef70-4711-bf1c-7f43101ef4e6
+
+_kliknij play by obejrzeć film_
+
