@@ -40,17 +40,37 @@ async function getCorrectionFromGemini(text) {
 }
 
 // Wspólna logika dla menu i skrótu klawiaturowego
-async function handleCorrection(text, tab) {
+async function handleCorrection(text, tab, editorId = null) {
     if (!text || !tab) return;
     const correctedText = await getCorrectionFromGemini(text);
 
     try {
         await chrome.tabs.sendMessage(tab.id, {action: "ping"});
-        chrome.tabs.sendMessage(tab.id, {action: "showModal", text: correctedText});
+        
+        // If editorId is provided, try to replace text directly in TinyMCE
+        if (editorId) {
+            chrome.tabs.sendMessage(tab.id, {
+                action: "replaceText", 
+                text: correctedText, 
+                editorId: editorId
+            });
+        } else {
+            // Otherwise show modal
+            chrome.tabs.sendMessage(tab.id, {action: "showModal", text: correctedText});
+        }
     } catch (error) {
         await chrome.scripting.insertCSS({target: {tabId: tab.id}, files: ['modal.css']});
         await chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['modal.js']});
-        chrome.tabs.sendMessage(tab.id, {action: "showModal", text: correctedText});
+        
+        if (editorId) {
+            chrome.tabs.sendMessage(tab.id, {
+                action: "replaceText", 
+                text: correctedText, 
+                editorId: editorId
+            });
+        } else {
+            chrome.tabs.sendMessage(tab.id, {action: "showModal", text: correctedText});
+        }
     }
 }
 
@@ -83,6 +103,19 @@ chrome.runtime.onInstalled.addListener(() => {
         contexts: ["selection"]
     });
 });
+
+// Handle messages from content script
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "correctText") {
+        const tab = sender.tab;
+        if (tab) {
+            handleCorrection(request.text, tab, request.editorId);
+        }
+        sendResponse({status: "processing"});
+        return true;
+    }
+});
+
 chrome.action.onClicked.addListener(() => {
     chrome.runtime.openOptionsPage();
 });

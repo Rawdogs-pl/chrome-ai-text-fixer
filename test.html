@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test TinyMCE v6 Integration</title>
+    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+</head>
+<body>
+    <h1>Test Chrome AI Text Fixer with TinyMCE v6</h1>
+    
+    <p>Instrukcje testowania:</p>
+    <ol>
+        <li>Załaduj rozszerzenie Chrome AI Text Fixer</li>
+        <li>Wprowadź tekst z błędami w edytorze poniżej</li>
+        <li>Zaznacz tekst</li>
+        <li>Kliknij prawym przyciskiem myszy lub użyj Ctrl+Shift+K</li>
+        <li>Sprawdź czy pojawia się opcja poprawy tekstu</li>
+    </ol>
+    
+    <h2>TinyMCE v6 Editor:</h2>
+    <textarea id="tinymce-editor">
+        Tutaj możesz napisać jakiś tekst z błędmi gramatycznymi czy ortograficznymi. Na przykład: "Jestem bardzo zadoony z tego rozwijania oprogramowania". Zaznacz fragment tekstu i spróbuj użyć rozszerzenia.
+    </textarea>
+    
+    <h2>Zwykły textarea (dla porównania):</h2>
+    <textarea style="width: 100%; height: 100px;" placeholder="Wpisz tekst tutaj i przetestuj rozszerzenie...">
+        Ten tekst też może zawiarać błędy. Sprawdz czy rozszerzenie działa w zwykłym textarea.
+    </textarea>
+    
+    <script>
+        tinymce.init({
+            selector: '#tinymce-editor',
+            height: 300,
+            menubar: false,
+            plugins: [
+                'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'anchor',
+                'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                'insertdatetime', 'media', 'table', 'preview', 'help', 'wordcount'
+            ],
+            toolbar: 'undo redo | blocks | ' +
+                'bold italic forecolor | alignleft aligncenter ' +
+                'alignright alignjustify | bullist numlist outdent indent | ' +
+                'removeformat | help',
+            content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }'
+        });
+        
+        // Add some debugging info
+        console.log('TinyMCE version:', tinymce.majorVersion + '.' + tinymce.minorVersion);
+        
+        // Log when editors are initialized
+        tinymce.on('AddEditor', function(e) {
+            console.log('TinyMCE editor added:', e.editor.id);
+        });
+    </script>
+</body>
+</html>
