@@ -8,6 +8,9 @@ let isExtensionActive = false;
 function init() {
     console.log('Chrome AI Text Fixer: Initializing content script');
     
+    // Set flag for debugging
+    window.chromeAITextFixerActive = true;
+    
     // Check for existing TinyMCE instances
     checkForTinyMCE();
     
@@ -141,12 +144,23 @@ function handleGlobalKeyboard(e) {
         // Check if we're in a TinyMCE editor
         const activeElement = document.activeElement;
         
-        // If we're in TinyMCE, let TinyMCE handle it
-        if (activeElement && activeElement.closest('.tox-edit-area')) {
-            return; // TinyMCE will handle this
+        // If we're in TinyMCE, let TinyMCE handle it (unless it doesn't respond)
+        if (activeElement && (activeElement.closest('.tox-edit-area') || activeElement.closest('[data-tinymce-simulation]'))) {
+            console.log('Chrome AI Text Fixer: In TinyMCE context, checking if TinyMCE handles shortcut...');
+            
+            // Give TinyMCE a chance to handle it, if not handled in 100ms, we'll handle it
+            setTimeout(() => {
+                const selectedText = window.getSelection().toString();
+                if (selectedText && selectedText.trim().length > 0) {
+                    console.log('Chrome AI Text Fixer: TinyMCE did not handle shortcut, handling it ourselves');
+                    e.preventDefault();
+                    handleTextCorrection(selectedText, null);
+                }
+            }, 100);
+            return;
         }
         
-        // Otherwise, handle normally
+        // Otherwise, handle normally for non-TinyMCE contexts
         const selectedText = window.getSelection().toString();
         if (selectedText && selectedText.trim().length > 0) {
             e.preventDefault();

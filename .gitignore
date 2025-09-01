@@ -1,0 +1,29 @@
+# Chrome Extension build artifacts
+*.zip
+*.crx
+
+# Development and testing files
+node_modules/
+.env
+.env.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test artifacts
+coverage/
+test-results/
+
+# Temporary files
+tmp/
+temp/
