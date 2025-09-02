@@ -84,6 +84,16 @@
     box-shadow: 0 2px 5px rgba(0,0,0,0.15);
 }
 
+#gemini-apply-btn {
+    background-color: #34A853;
+    color: white;
+}
+
+#gemini-apply-btn:hover {
+    background-color: #2d8e47;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
 #gemini-close-btn {
     background-color: #e0e0e0;
     color: #333;
