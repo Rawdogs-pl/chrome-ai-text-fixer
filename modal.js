@@ -87,7 +87,7 @@ function applyTextToElement(newText) {
         let targetElement = null;
         
         // Sprawdź różne sposoby znalezienia elementu
-        if (currentSelectionInfo.elementInfo.elementId) {
+        if (currentSelectionInfo.elementInfo && currentSelectionInfo.elementInfo.elementId) {
             targetElement = document.getElementById(currentSelectionInfo.elementInfo.elementId);
         }
         
