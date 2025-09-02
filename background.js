@@ -67,16 +67,12 @@ async function handleCorrection(text, tab, selectionInfo = null) {
 // Listener do menu kontekstowego
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId === "correct-language-gemini") {
-        // Pobierz dodatkowe informacje o selekcji
+        // Pobierz informacje o selekcji
         const results = await chrome.scripting.executeScript({
             target: {tabId: tab.id},
             func: (selectedText) => {
                 const selection = window.getSelection();
                 if (!selection.rangeCount) return null;
-
-                // Sprawdź czy selekcja pochodzi z edytowalnego elementu
-                let isEditable = false;
-                let elementInfo = null;
 
                 const range = selection.getRangeAt(0);
                 const container = range.commonAncestorContainer;
@@ -85,58 +81,30 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 // Sprawdź czy element jest edytowalny
                 if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || 
                     element.contentEditable === 'true' || element.isContentEditable) {
-                    isEditable = true;
                     
-                    // Dla INPUT i TEXTAREA znajdź pozycję zaznaczonego tekstu w wartości elementu
                     let textStart = -1;
                     let textEnd = -1;
                     
+                    // Dla INPUT i TEXTAREA znajdź pozycję tekstu
                     if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
                         const value = element.value;
                         if (selectedText && value.includes(selectedText)) {
-                            // Znajdź pozycję zaznaczonego tekstu w wartości elementu
                             textStart = value.indexOf(selectedText);
-                            if (textStart !== -1) {
-                                textEnd = textStart + selectedText.length;
-                            }
+                            textEnd = textStart + selectedText.length;
                         }
                     }
                     
-                    // Stwórz unikalny selektor dla elementu
-                    const getElementSelector = (el) => {
-                        if (el.id) return `#${el.id}`;
-                        
-                        let selector = el.tagName.toLowerCase();
-                        if (el.className) {
-                            selector += '.' + el.className.split(' ').filter(c => c).join('.');
+                    return {
+                        isEditable: true,
+                        elementInfo: {
+                            elementId: element.id || null,
+                            textStart: textStart,
+                            textEnd: textEnd
                         }
-                        
-                        // Dodaj indeks wśród elementów tego samego typu
-                        const siblings = document.querySelectorAll(selector);
-                        if (siblings.length > 1) {
-                            const index = Array.from(siblings).indexOf(el);
-                            selector += `:nth-of-type(${index + 1})`;
-                        }
-                        
-                        return selector;
-                    };
-                    
-                    elementInfo = {
-                        tagName: element.tagName,
-                        elementId: element.id || null,
-                        className: element.className || null,
-                        selector: getElementSelector(element),
-                        textStart: textStart,
-                        textEnd: textEnd,
-                        currentSelectionStart: element.selectionStart,
-                        currentSelectionEnd: element.selectionEnd
                     };
                 }
 
-                return {
-                    isEditable: isEditable,
-                    elementInfo: elementInfo
-                };
+                return { isEditable: false };
             },
             args: [info.selectionText]
         });
@@ -156,72 +124,38 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
                 const selectedText = selection.toString();
                 if (!selectedText) return null;
 
-                // Sprawdź czy selekcja pochodzi z edytowalnego elementu
-                let isEditable = false;
-                let elementInfo = null;
-
                 if (selection.rangeCount > 0) {
                     const range = selection.getRangeAt(0);
                     const container = range.commonAncestorContainer;
                     const element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
                     
-                    // Sprawdź czy element jest edytowalny
                     if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || 
                         element.contentEditable === 'true' || element.isContentEditable) {
-                        isEditable = true;
                         
-                        // Dla INPUT i TEXTAREA znajdź pozycję zaznaczonego tekstu w wartości elementu
                         let textStart = -1;
                         let textEnd = -1;
                         
                         if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
                             const value = element.value;
                             if (selectedText && value.includes(selectedText)) {
-                                // Znajdź pozycję zaznaczonego tekstu w wartości elementu
                                 textStart = value.indexOf(selectedText);
-                                if (textStart !== -1) {
-                                    textEnd = textStart + selectedText.length;
-                                }
+                                textEnd = textStart + selectedText.length;
                             }
                         }
                         
-                        // Stwórz unikalny selektor dla elementu
-                        const getElementSelector = (el) => {
-                            if (el.id) return `#${el.id}`;
-                            
-                            let selector = el.tagName.toLowerCase();
-                            if (el.className) {
-                                selector += '.' + el.className.split(' ').filter(c => c).join('.');
+                        return {
+                            text: selectedText,
+                            isEditable: true,
+                            elementInfo: {
+                                elementId: element.id || null,
+                                textStart: textStart,
+                                textEnd: textEnd
                             }
-                            
-                            // Dodaj indeks wśród elementów tego samego typu
-                            const siblings = document.querySelectorAll(selector);
-                            if (siblings.length > 1) {
-                                const index = Array.from(siblings).indexOf(el);
-                                selector += `:nth-of-type(${index + 1})`;
-                            }
-                            
-                            return selector;
-                        };
-                        
-                        elementInfo = {
-                            tagName: element.tagName,
-                            elementId: element.id || null,
-                            className: element.className || null,
-                            selector: getElementSelector(element),
-                            textStart: textStart,
-                            textEnd: textEnd,
-                            currentSelectionStart: element.selectionStart,
-                            currentSelectionEnd: element.selectionEnd
                         };
                     }
                 }
 
-                return {
-                    text: selectedText,
-                    isEditable: isEditable,
-                    elementInfo: elementInfo
-                };
+                return { text: selectedText, isEditable: false };
             },
         });
 

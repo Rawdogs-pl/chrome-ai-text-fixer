@@ -86,42 +86,9 @@ function applyTextToElement(newText) {
         // Znajdź element do edycji
         let targetElement = null;
         
-        // Spróbuj znaleźć element przy użyciu selektora
-        if (currentSelectionInfo.elementInfo && currentSelectionInfo.elementInfo.selector) {
-            try {
-                targetElement = document.querySelector(currentSelectionInfo.elementInfo.selector);
-            } catch (e) {
-                console.warn('Nie można znaleźć elementu przez selektor:', e);
-            }
-        }
-        
-        // Spróbuj znaleźć element przez ID
-        if (!targetElement && currentSelectionInfo.elementInfo && currentSelectionInfo.elementInfo.elementId) {
+        // Użyj ID jeśli jest dostępne
+        if (currentSelectionInfo.elementInfo && currentSelectionInfo.elementInfo.elementId) {
             targetElement = document.getElementById(currentSelectionInfo.elementInfo.elementId);
-        }
-        
-        // Spróbuj znaleźć element przez aktywny element
-        if (!targetElement) {
-            const activeElement = document.activeElement;
-            if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || 
-                activeElement.contentEditable === 'true' || activeElement.isContentEditable)) {
-                targetElement = activeElement;
-            }
-        }
-
-        // Ostatnia próba - znajdź przez selekcję
-        if (!targetElement) {
-            const selection = window.getSelection();
-            if (selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                const container = range.commonAncestorContainer;
-                const element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
-                
-                if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || 
-                    element.contentEditable === 'true' || element.isContentEditable) {
-                    targetElement = element;
-                }
-            }
         }
 
         if (!targetElement) {
@@ -131,58 +98,24 @@ function applyTextToElement(newText) {
 
         // Zastąp tekst w zależności od typu elementu
         if (targetElement.tagName === 'INPUT' || targetElement.tagName === 'TEXTAREA') {
-            // Dla input i textarea - użyj zapisanych pozycji jeśli są dostępne
             const value = targetElement.value;
-            let startPos, endPos;
+            let startPos = currentSelectionInfo.elementInfo.textStart;
+            let endPos = currentSelectionInfo.elementInfo.textEnd;
             
-            // Sprawdź czy mamy zapisane pozycje tekstu
-            if (currentSelectionInfo.elementInfo && 
-                currentSelectionInfo.elementInfo.textStart !== -1 && 
-                currentSelectionInfo.elementInfo.textEnd !== -1) {
-                startPos = currentSelectionInfo.elementInfo.textStart;
-                endPos = currentSelectionInfo.elementInfo.textEnd;
-                
-                // Sprawdź czy oryginalny tekst nadal się zgadza na tej pozycji
+            // Sprawdź czy mamy prawidłowe pozycje
+            if (startPos !== -1 && endPos !== -1) {
                 const textAtPosition = value.substring(startPos, endPos);
                 if (textAtPosition === currentOriginalText) {
                     // Zastąp tekst na zapisanej pozycji
                     targetElement.value = value.substring(0, startPos) + newText + value.substring(endPos);
-                    // Ustaw kursor na końcu nowego tekstu
                     targetElement.selectionStart = targetElement.selectionEnd = startPos + newText.length;
                 } else {
-                    // Fallback - spróbuj znaleźć tekst w całej wartości
-                    const originalIndex = value.indexOf(currentOriginalText);
-                    if (originalIndex !== -1) {
-                        targetElement.value = value.substring(0, originalIndex) + newText + 
-                                            value.substring(originalIndex + currentOriginalText.length);
-                        targetElement.selectionStart = targetElement.selectionEnd = originalIndex + newText.length;
-                    } else {
-                        console.warn('Nie można znaleźć oryginalnego tekstu do zastąpienia');
-                        return;
-                    }
+                    console.warn('Tekst na zapisanej pozycji nie pasuje do oryginału');
+                    return;
                 }
             } else {
-                // Fallback - sprawdź aktualną selekcję lub znajdź tekst
-                startPos = targetElement.selectionStart;
-                endPos = targetElement.selectionEnd;
-                
-                const selectedText = value.substring(startPos, endPos);
-                if (selectedText === currentOriginalText) {
-                    // Tekst jest nadal zaznaczony - zastąp go
-                    targetElement.value = value.substring(0, startPos) + newText + value.substring(endPos);
-                    targetElement.selectionStart = targetElement.selectionEnd = startPos + newText.length;
-                } else {
-                    // Spróbuj znaleźć oryginalny tekst w wartości
-                    const originalIndex = value.indexOf(currentOriginalText);
-                    if (originalIndex !== -1) {
-                        targetElement.value = value.substring(0, originalIndex) + newText + 
-                                            value.substring(originalIndex + currentOriginalText.length);
-                        targetElement.selectionStart = targetElement.selectionEnd = originalIndex + newText.length;
-                    } else {
-                        console.warn('Nie można znaleźć oryginalnego tekstu do zastąpienia');
-                        return;
-                    }
-                }
+                console.warn('Brak prawidłowych pozycji tekstu');
+                return;
             }
             
             // Wywołaj event 'input' aby powiadomić o zmianie
@@ -190,28 +123,15 @@ function applyTextToElement(newText) {
             targetElement.focus();
             
         } else if (targetElement.contentEditable === 'true' || targetElement.isContentEditable) {
-            // Dla elementów contentEditable
-            const selection = window.getSelection();
-            if (selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                range.deleteContents();
-                range.insertNode(document.createTextNode(newText));
-                
-                // Ustaw kursor na końcu wstawionego tekstu
-                range.setStartAfter(range.endContainer);
-                range.collapse(true);
-                selection.removeAllRanges();
-                selection.addRange(range);
+            // Dla elementów contentEditable - zamień całą zawartość tekstową
+            const elementText = targetElement.textContent || '';
+            if (elementText.includes(currentOriginalText)) {
+                const newContent = elementText.replace(currentOriginalText, newText);
+                targetElement.textContent = newContent;
+                targetElement.focus();
             } else {
-                // Jeśli nie ma selekcji, spróbuj znaleźć i zastąpić tekst
-                const elementText = targetElement.textContent || targetElement.innerText || '';
-                if (elementText.includes(currentOriginalText)) {
-                    const newContent = elementText.replace(currentOriginalText, newText);
-                    targetElement.textContent = newContent;
-                }
+                console.warn('Nie można znaleźć oryginalnego tekstu w elemencie contentEditable');
             }
-            
-            targetElement.focus();
         }
 
     } catch (error) {
