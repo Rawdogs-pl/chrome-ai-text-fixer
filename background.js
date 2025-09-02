@@ -79,15 +79,35 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 const element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
                 
                 // Sprawdź czy element jest edytowalny
-                if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || 
-                    element.contentEditable === 'true' || element.isContentEditable) {
-                    
+                let editableElement = null;
+                let elementType = null;
+                
+                if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                    editableElement = element;
+                    elementType = 'input';
+                } else if (element.contentEditable === 'true' || element.isContentEditable) {
+                    editableElement = element;
+                    elementType = 'contentEditable';
+                } else {
+                    // Sprawdź czy element jest wewnątrz contentEditable kontenera
+                    let parent = element.parentElement;
+                    while (parent && parent !== document.body) {
+                        if (parent.contentEditable === 'true' || parent.isContentEditable) {
+                            editableElement = parent;
+                            elementType = 'contentEditableParent';
+                            break;
+                        }
+                        parent = parent.parentElement;
+                    }
+                }
+                
+                if (editableElement) {
                     let textStart = -1;
                     let textEnd = -1;
                     
                     // Dla INPUT i TEXTAREA znajdź pozycję tekstu
-                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-                        const value = element.value;
+                    if (elementType === 'input') {
+                        const value = editableElement.value;
                         if (selectedText && value.includes(selectedText)) {
                             textStart = value.indexOf(selectedText);
                             textEnd = textStart + selectedText.length;
@@ -97,7 +117,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                     return {
                         isEditable: true,
                         elementInfo: {
-                            elementId: element.id || null,
+                            elementId: editableElement.id || null,
+                            elementType: elementType,
+                            selectedElement: element,
+                            editableElement: editableElement,
                             textStart: textStart,
                             textEnd: textEnd
                         }
@@ -129,14 +152,34 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
                     const container = range.commonAncestorContainer;
                     const element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
                     
-                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || 
-                        element.contentEditable === 'true' || element.isContentEditable) {
-                        
+                    let editableElement = null;
+                    let elementType = null;
+                    
+                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                        editableElement = element;
+                        elementType = 'input';
+                    } else if (element.contentEditable === 'true' || element.isContentEditable) {
+                        editableElement = element;
+                        elementType = 'contentEditable';
+                    } else {
+                        // Sprawdź czy element jest wewnątrz contentEditable kontenera
+                        let parent = element.parentElement;
+                        while (parent && parent !== document.body) {
+                            if (parent.contentEditable === 'true' || parent.isContentEditable) {
+                                editableElement = parent;
+                                elementType = 'contentEditableParent';
+                                break;
+                            }
+                            parent = parent.parentElement;
+                        }
+                    }
+                    
+                    if (editableElement) {
                         let textStart = -1;
                         let textEnd = -1;
                         
-                        if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-                            const value = element.value;
+                        if (elementType === 'input') {
+                            const value = editableElement.value;
                             if (selectedText && value.includes(selectedText)) {
                                 textStart = value.indexOf(selectedText);
                                 textEnd = textStart + selectedText.length;
@@ -147,7 +190,10 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
                             text: selectedText,
                             isEditable: true,
                             elementInfo: {
-                                elementId: element.id || null,
+                                elementId: editableElement.id || null,
+                                elementType: elementType,
+                                selectedElement: element,
+                                editableElement: editableElement,
                                 textStart: textStart,
                                 textEnd: textEnd
                             }

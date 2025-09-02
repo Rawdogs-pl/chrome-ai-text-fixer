@@ -83,12 +83,21 @@ function applyTextToElement(newText) {
     }
 
     try {
-        // Znajdź element do edycji
+        const elementInfo = currentSelectionInfo.elementInfo;
         let targetElement = null;
         
         // Użyj ID jeśli jest dostępne
-        if (currentSelectionInfo.elementInfo && currentSelectionInfo.elementInfo.elementId) {
-            targetElement = document.getElementById(currentSelectionInfo.elementInfo.elementId);
+        if (elementInfo && elementInfo.elementId) {
+            targetElement = document.getElementById(elementInfo.elementId);
+        }
+        
+        // Jeśli nie ma ID, spróbuj użyć zapisanych referencji do elementów
+        if (!targetElement && elementInfo) {
+            if (elementInfo.elementType === 'input') {
+                targetElement = elementInfo.editableElement || elementInfo.selectedElement;
+            } else {
+                targetElement = elementInfo.editableElement;
+            }
         }
 
         if (!targetElement) {
@@ -97,10 +106,10 @@ function applyTextToElement(newText) {
         }
 
         // Zastąp tekst w zależności od typu elementu
-        if (targetElement.tagName === 'INPUT' || targetElement.tagName === 'TEXTAREA') {
+        if (elementInfo.elementType === 'input') {
             const value = targetElement.value;
-            let startPos = currentSelectionInfo.elementInfo.textStart;
-            let endPos = currentSelectionInfo.elementInfo.textEnd;
+            let startPos = elementInfo.textStart;
+            let endPos = elementInfo.textEnd;
             
             // Sprawdź czy mamy prawidłowe pozycje
             if (startPos !== -1 && endPos !== -1) {
@@ -122,21 +131,106 @@ function applyTextToElement(newText) {
             targetElement.dispatchEvent(new Event('input', { bubbles: true }));
             targetElement.focus();
             
-        } else if (targetElement.contentEditable === 'true' || targetElement.isContentEditable) {
-            // Dla elementów contentEditable - zamień całą zawartość tekstową
-            const elementText = targetElement.textContent || '';
-            if (elementText.includes(currentOriginalText)) {
-                const newContent = elementText.replace(currentOriginalText, newText);
-                targetElement.textContent = newContent;
+        } else if (elementInfo.elementType === 'contentEditable' || elementInfo.elementType === 'contentEditableParent') {
+            // Dla elementów contentEditable - użyj bardziej zaawansowanej logiki
+            if (replaceTextInContentEditable(targetElement, elementInfo.selectedElement, currentOriginalText, newText)) {
                 targetElement.focus();
+                
+                // Wywołaj eventy aby powiadomić o zmianie
+                targetElement.dispatchEvent(new Event('input', { bubbles: true }));
+                targetElement.dispatchEvent(new Event('change', { bubbles: true }));
             } else {
-                console.warn('Nie można znaleźć oryginalnego tekstu w elemencie contentEditable');
+                console.warn('Nie udało się zastąpić tekstu w elemencie contentEditable');
             }
         }
 
     } catch (error) {
         console.error('Błąd podczas zastępowania tekstu:', error);
     }
+}
+
+function replaceTextInContentEditable(editableElement, selectedElement, originalText, newText) {
+    // Sprawdź czy selectedElement nadal istnieje w DOM
+    if (!document.contains(selectedElement)) {
+        console.warn('Pierwotnie zaznaczony element nie istnieje już w DOM');
+        return fallbackContentEditableReplace(editableElement, originalText, newText);
+    }
+    
+    // Spróbuj zastąpić tekst w konkretnym elemencie gdzie była selekcja
+    if (selectedElement.textContent && selectedElement.textContent.includes(originalText)) {
+        // Jeśli to element tekstowy (np. <p>), zastąp jego zawartość
+        if (selectedElement.textContent === originalText) {
+            selectedElement.textContent = newText;
+            return true;
+        } else {
+            // Częściowa zamiana w elemencie
+            selectedElement.textContent = selectedElement.textContent.replace(originalText, newText);
+            return true;
+        }
+    }
+    
+    // Spróbuj na poziomie węzłów tekstowych
+    const walker = document.createTreeWalker(
+        selectedElement,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+    );
+    
+    let textNode;
+    while (textNode = walker.nextNode()) {
+        if (textNode.textContent && textNode.textContent.includes(originalText)) {
+            textNode.textContent = textNode.textContent.replace(originalText, newText);
+            return true;
+        }
+    }
+    
+    // Ostatni fallback - przeszukaj cały editable element
+    return fallbackContentEditableReplace(editableElement, originalText, newText);
+}
+
+function fallbackContentEditableReplace(editableElement, originalText, newText) {
+    // Sprawdź czy cały element zawiera oryginalny tekst
+    const elementText = editableElement.textContent || '';
+    if (elementText.includes(originalText)) {
+        // Sprawdź czy to proste zastąpienie całego tekstu
+        if (elementText.trim() === originalText.trim()) {
+            editableElement.textContent = newText;
+            return true;
+        }
+        
+        // Dla Facebook Messenger i podobnych - spróbuj znaleźć odpowiedni element <p>
+        const paragraphs = editableElement.querySelectorAll('p, div[contenteditable], span');
+        for (const p of paragraphs) {
+            if (p.textContent && p.textContent.includes(originalText)) {
+                if (p.textContent.trim() === originalText.trim()) {
+                    p.textContent = newText;
+                    return true;
+                } else {
+                    p.textContent = p.textContent.replace(originalText, newText);
+                    return true;
+                }
+            }
+        }
+        
+        // Ostateczny fallback - zamień na poziomie węzłów tekstowych w całym elemencie
+        const walker = document.createTreeWalker(
+            editableElement,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        
+        let textNode;
+        while (textNode = walker.nextNode()) {
+            if (textNode.textContent && textNode.textContent.includes(originalText)) {
+                textNode.textContent = textNode.textContent.replace(originalText, newText);
+                return true;
+            }
+        }
+    }
+    
+    return false;
 }
 
 
