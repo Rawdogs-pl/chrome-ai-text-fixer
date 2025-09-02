@@ -40,24 +40,70 @@ async function getCorrectionFromGemini(text) {
 }
 
 // Wspólna logika dla menu i skrótu klawiaturowego
-async function handleCorrection(text, tab) {
+async function handleCorrection(text, tab, selectionInfo = null) {
     if (!text || !tab) return;
     const correctedText = await getCorrectionFromGemini(text);
 
     try {
         await chrome.tabs.sendMessage(tab.id, {action: "ping"});
-        chrome.tabs.sendMessage(tab.id, {action: "showModal", text: correctedText});
+        chrome.tabs.sendMessage(tab.id, {
+            action: "showModal", 
+            text: correctedText, 
+            originalText: text,
+            selectionInfo: selectionInfo
+        });
     } catch (error) {
         await chrome.scripting.insertCSS({target: {tabId: tab.id}, files: ['modal.css']});
         await chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['modal.js']});
-        chrome.tabs.sendMessage(tab.id, {action: "showModal", text: correctedText});
+        chrome.tabs.sendMessage(tab.id, {
+            action: "showModal", 
+            text: correctedText, 
+            originalText: text,
+            selectionInfo: selectionInfo
+        });
     }
 }
 
 // Listener do menu kontekstowego
-chrome.contextMenus.onClicked.addListener((info, tab) => {
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId === "correct-language-gemini") {
-        handleCorrection(info.selectionText, tab);
+        // Pobierz dodatkowe informacje o selekcji
+        const results = await chrome.scripting.executeScript({
+            target: {tabId: tab.id},
+            func: () => {
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return null;
+
+                // Sprawdź czy selekcja pochodzi z edytowalnego elementu
+                let isEditable = false;
+                let elementInfo = null;
+
+                const range = selection.getRangeAt(0);
+                const container = range.commonAncestorContainer;
+                const element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+                
+                // Sprawdź czy element jest edytowalny
+                if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || 
+                    element.contentEditable === 'true' || element.isContentEditable) {
+                    isEditable = true;
+                    elementInfo = {
+                        tagName: element.tagName,
+                        selectionStart: element.selectionStart,
+                        selectionEnd: element.selectionEnd,
+                        elementId: element.id || null,
+                        className: element.className || null
+                    };
+                }
+
+                return {
+                    isEditable: isEditable,
+                    elementInfo: elementInfo
+                };
+            },
+        });
+
+        const selectionInfo = results && results[0] && results[0].result ? results[0].result : null;
+        handleCorrection(info.selectionText, tab, selectionInfo);
     }
 });
 
@@ -66,12 +112,48 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
     if (command === "correct-language-shortcut") {
         const results = await chrome.scripting.executeScript({
             target: {tabId: tab.id},
-            func: () => window.getSelection().toString(),
+            func: () => {
+                const selection = window.getSelection();
+                const selectedText = selection.toString();
+                if (!selectedText) return null;
+
+                // Sprawdź czy selekcja pochodzi z edytowalnego elementu
+                let isEditable = false;
+                let elementInfo = null;
+
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    const container = range.commonAncestorContainer;
+                    const element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+                    
+                    // Sprawdź czy element jest edytowalny
+                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || 
+                        element.contentEditable === 'true' || element.isContentEditable) {
+                        isEditable = true;
+                        elementInfo = {
+                            tagName: element.tagName,
+                            selectionStart: element.selectionStart,
+                            selectionEnd: element.selectionEnd,
+                            elementId: element.id || null,
+                            className: element.className || null
+                        };
+                    }
+                }
+
+                return {
+                    text: selectedText,
+                    isEditable: isEditable,
+                    elementInfo: elementInfo
+                };
+            },
         });
 
-        if (results && results[0] && results[0].result) {
-            const selectedText = results[0].result;
-            handleCorrection(selectedText, tab);
+        if (results && results[0] && results[0].result && results[0].result.text) {
+            const result = results[0].result;
+            handleCorrection(result.text, tab, {
+                isEditable: result.isEditable,
+                elementInfo: result.elementInfo
+            });
         }
     }
 });
