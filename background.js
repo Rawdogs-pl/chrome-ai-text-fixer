@@ -70,7 +70,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         // Pobierz dodatkowe informacje o selekcji
         const results = await chrome.scripting.executeScript({
             target: {tabId: tab.id},
-            func: () => {
+            func: (selectedText) => {
                 const selection = window.getSelection();
                 if (!selection.rangeCount) return null;
 
@@ -86,12 +86,50 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || 
                     element.contentEditable === 'true' || element.isContentEditable) {
                     isEditable = true;
+                    
+                    // Dla INPUT i TEXTAREA znajdź pozycję zaznaczonego tekstu w wartości elementu
+                    let textStart = -1;
+                    let textEnd = -1;
+                    
+                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                        const value = element.value;
+                        if (selectedText && value.includes(selectedText)) {
+                            // Znajdź pozycję zaznaczonego tekstu w wartości elementu
+                            textStart = value.indexOf(selectedText);
+                            if (textStart !== -1) {
+                                textEnd = textStart + selectedText.length;
+                            }
+                        }
+                    }
+                    
+                    // Stwórz unikalny selektor dla elementu
+                    const getElementSelector = (el) => {
+                        if (el.id) return `#${el.id}`;
+                        
+                        let selector = el.tagName.toLowerCase();
+                        if (el.className) {
+                            selector += '.' + el.className.split(' ').filter(c => c).join('.');
+                        }
+                        
+                        // Dodaj indeks wśród elementów tego samego typu
+                        const siblings = document.querySelectorAll(selector);
+                        if (siblings.length > 1) {
+                            const index = Array.from(siblings).indexOf(el);
+                            selector += `:nth-of-type(${index + 1})`;
+                        }
+                        
+                        return selector;
+                    };
+                    
                     elementInfo = {
                         tagName: element.tagName,
-                        selectionStart: element.selectionStart,
-                        selectionEnd: element.selectionEnd,
                         elementId: element.id || null,
-                        className: element.className || null
+                        className: element.className || null,
+                        selector: getElementSelector(element),
+                        textStart: textStart,
+                        textEnd: textEnd,
+                        currentSelectionStart: element.selectionStart,
+                        currentSelectionEnd: element.selectionEnd
                     };
                 }
 
@@ -100,6 +138,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                     elementInfo: elementInfo
                 };
             },
+            args: [info.selectionText]
         });
 
         const selectionInfo = results && results[0] && results[0].result ? results[0].result : null;
@@ -130,12 +169,50 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
                     if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || 
                         element.contentEditable === 'true' || element.isContentEditable) {
                         isEditable = true;
+                        
+                        // Dla INPUT i TEXTAREA znajdź pozycję zaznaczonego tekstu w wartości elementu
+                        let textStart = -1;
+                        let textEnd = -1;
+                        
+                        if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                            const value = element.value;
+                            if (selectedText && value.includes(selectedText)) {
+                                // Znajdź pozycję zaznaczonego tekstu w wartości elementu
+                                textStart = value.indexOf(selectedText);
+                                if (textStart !== -1) {
+                                    textEnd = textStart + selectedText.length;
+                                }
+                            }
+                        }
+                        
+                        // Stwórz unikalny selektor dla elementu
+                        const getElementSelector = (el) => {
+                            if (el.id) return `#${el.id}`;
+                            
+                            let selector = el.tagName.toLowerCase();
+                            if (el.className) {
+                                selector += '.' + el.className.split(' ').filter(c => c).join('.');
+                            }
+                            
+                            // Dodaj indeks wśród elementów tego samego typu
+                            const siblings = document.querySelectorAll(selector);
+                            if (siblings.length > 1) {
+                                const index = Array.from(siblings).indexOf(el);
+                                selector += `:nth-of-type(${index + 1})`;
+                            }
+                            
+                            return selector;
+                        };
+                        
                         elementInfo = {
                             tagName: element.tagName,
-                            selectionStart: element.selectionStart,
-                            selectionEnd: element.selectionEnd,
                             elementId: element.id || null,
-                            className: element.className || null
+                            className: element.className || null,
+                            selector: getElementSelector(element),
+                            textStart: textStart,
+                            textEnd: textEnd,
+                            currentSelectionStart: element.selectionStart,
+                            currentSelectionEnd: element.selectionEnd
                         };
                     }
                 }

@@ -86,13 +86,22 @@ function applyTextToElement(newText) {
         // Znajdź element do edycji
         let targetElement = null;
         
-        // Sprawdź różne sposoby znalezienia elementu
-        if (currentSelectionInfo.elementInfo && currentSelectionInfo.elementInfo.elementId) {
+        // Spróbuj znaleźć element przy użyciu selektora
+        if (currentSelectionInfo.elementInfo && currentSelectionInfo.elementInfo.selector) {
+            try {
+                targetElement = document.querySelector(currentSelectionInfo.elementInfo.selector);
+            } catch (e) {
+                console.warn('Nie można znaleźć elementu przez selektor:', e);
+            }
+        }
+        
+        // Spróbuj znaleźć element przez ID
+        if (!targetElement && currentSelectionInfo.elementInfo && currentSelectionInfo.elementInfo.elementId) {
             targetElement = document.getElementById(currentSelectionInfo.elementInfo.elementId);
         }
         
+        // Spróbuj znaleźć element przez aktywny element
         if (!targetElement) {
-            // Spróbuj znaleźć element przez fokus lub aktywny element
             const activeElement = document.activeElement;
             if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || 
                 activeElement.contentEditable === 'true' || activeElement.isContentEditable)) {
@@ -100,8 +109,8 @@ function applyTextToElement(newText) {
             }
         }
 
+        // Ostatnia próba - znajdź przez selekcję
         if (!targetElement) {
-            // Ostatnia próba - znajdź przez selekcję
             const selection = window.getSelection();
             if (selection.rangeCount > 0) {
                 const range = selection.getRangeAt(0);
@@ -122,25 +131,57 @@ function applyTextToElement(newText) {
 
         // Zastąp tekst w zależności od typu elementu
         if (targetElement.tagName === 'INPUT' || targetElement.tagName === 'TEXTAREA') {
-            // Dla input i textarea
+            // Dla input i textarea - użyj zapisanych pozycji jeśli są dostępne
             const value = targetElement.value;
-            const startPos = targetElement.selectionStart;
-            const endPos = targetElement.selectionEnd;
+            let startPos, endPos;
             
-            // Znajdź pozycję oryginalnego tekstu jeśli selekcja się zmieniła
-            const selectedText = value.substring(startPos, endPos);
-            if (selectedText === currentOriginalText) {
-                // Tekst jest nadal zaznaczony - zastąp go
-                targetElement.value = value.substring(0, startPos) + newText + value.substring(endPos);
-                // Ustaw kursor na końcu nowego tekstu
-                targetElement.selectionStart = targetElement.selectionEnd = startPos + newText.length;
+            // Sprawdź czy mamy zapisane pozycje tekstu
+            if (currentSelectionInfo.elementInfo && 
+                currentSelectionInfo.elementInfo.textStart !== -1 && 
+                currentSelectionInfo.elementInfo.textEnd !== -1) {
+                startPos = currentSelectionInfo.elementInfo.textStart;
+                endPos = currentSelectionInfo.elementInfo.textEnd;
+                
+                // Sprawdź czy oryginalny tekst nadal się zgadza na tej pozycji
+                const textAtPosition = value.substring(startPos, endPos);
+                if (textAtPosition === currentOriginalText) {
+                    // Zastąp tekst na zapisanej pozycji
+                    targetElement.value = value.substring(0, startPos) + newText + value.substring(endPos);
+                    // Ustaw kursor na końcu nowego tekstu
+                    targetElement.selectionStart = targetElement.selectionEnd = startPos + newText.length;
+                } else {
+                    // Fallback - spróbuj znaleźć tekst w całej wartości
+                    const originalIndex = value.indexOf(currentOriginalText);
+                    if (originalIndex !== -1) {
+                        targetElement.value = value.substring(0, originalIndex) + newText + 
+                                            value.substring(originalIndex + currentOriginalText.length);
+                        targetElement.selectionStart = targetElement.selectionEnd = originalIndex + newText.length;
+                    } else {
+                        console.warn('Nie można znaleźć oryginalnego tekstu do zastąpienia');
+                        return;
+                    }
+                }
             } else {
-                // Spróbuj znaleźć oryginalny tekst w wartości
-                const originalIndex = value.indexOf(currentOriginalText);
-                if (originalIndex !== -1) {
-                    targetElement.value = value.substring(0, originalIndex) + newText + 
-                                        value.substring(originalIndex + currentOriginalText.length);
-                    targetElement.selectionStart = targetElement.selectionEnd = originalIndex + newText.length;
+                // Fallback - sprawdź aktualną selekcję lub znajdź tekst
+                startPos = targetElement.selectionStart;
+                endPos = targetElement.selectionEnd;
+                
+                const selectedText = value.substring(startPos, endPos);
+                if (selectedText === currentOriginalText) {
+                    // Tekst jest nadal zaznaczony - zastąp go
+                    targetElement.value = value.substring(0, startPos) + newText + value.substring(endPos);
+                    targetElement.selectionStart = targetElement.selectionEnd = startPos + newText.length;
+                } else {
+                    // Spróbuj znaleźć oryginalny tekst w wartości
+                    const originalIndex = value.indexOf(currentOriginalText);
+                    if (originalIndex !== -1) {
+                        targetElement.value = value.substring(0, originalIndex) + newText + 
+                                            value.substring(originalIndex + currentOriginalText.length);
+                        targetElement.selectionStart = targetElement.selectionEnd = originalIndex + newText.length;
+                    } else {
+                        console.warn('Nie można znaleźć oryginalnego tekstu do zastąpienia');
+                        return;
+                    }
                 }
             }
             
@@ -161,6 +202,13 @@ function applyTextToElement(newText) {
                 range.collapse(true);
                 selection.removeAllRanges();
                 selection.addRange(range);
+            } else {
+                // Jeśli nie ma selekcji, spróbuj znaleźć i zastąpić tekst
+                const elementText = targetElement.textContent || targetElement.innerText || '';
+                if (elementText.includes(currentOriginalText)) {
+                    const newContent = elementText.replace(currentOriginalText, newText);
+                    targetElement.textContent = newContent;
+                }
             }
             
             targetElement.focus();
