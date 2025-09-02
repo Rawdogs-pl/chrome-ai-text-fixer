@@ -67,16 +67,12 @@ async function handleCorrection(text, tab, selectionInfo = null) {
 // Listener do menu kontekstowego
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId === "correct-language-gemini") {
-        // Pobierz dodatkowe informacje o selekcji
+        // Pobierz informacje o selekcji
         const results = await chrome.scripting.executeScript({
             target: {tabId: tab.id},
-            func: () => {
+            func: (selectedText) => {
                 const selection = window.getSelection();
                 if (!selection.rangeCount) return null;
-
-                // Sprawdź czy selekcja pochodzi z edytowalnego elementu
-                let isEditable = false;
-                let elementInfo = null;
 
                 const range = selection.getRangeAt(0);
                 const container = range.commonAncestorContainer;
@@ -85,21 +81,32 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 // Sprawdź czy element jest edytowalny
                 if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || 
                     element.contentEditable === 'true' || element.isContentEditable) {
-                    isEditable = true;
-                    elementInfo = {
-                        tagName: element.tagName,
-                        selectionStart: element.selectionStart,
-                        selectionEnd: element.selectionEnd,
-                        elementId: element.id || null,
-                        className: element.className || null
+                    
+                    let textStart = -1;
+                    let textEnd = -1;
+                    
+                    // Dla INPUT i TEXTAREA znajdź pozycję tekstu
+                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                        const value = element.value;
+                        if (selectedText && value.includes(selectedText)) {
+                            textStart = value.indexOf(selectedText);
+                            textEnd = textStart + selectedText.length;
+                        }
+                    }
+                    
+                    return {
+                        isEditable: true,
+                        elementInfo: {
+                            elementId: element.id || null,
+                            textStart: textStart,
+                            textEnd: textEnd
+                        }
                     };
                 }
 
-                return {
-                    isEditable: isEditable,
-                    elementInfo: elementInfo
-                };
+                return { isEditable: false };
             },
+            args: [info.selectionText]
         });
 
         const selectionInfo = results && results[0] && results[0].result ? results[0].result : null;
@@ -117,34 +124,38 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
                 const selectedText = selection.toString();
                 if (!selectedText) return null;
 
-                // Sprawdź czy selekcja pochodzi z edytowalnego elementu
-                let isEditable = false;
-                let elementInfo = null;
-
                 if (selection.rangeCount > 0) {
                     const range = selection.getRangeAt(0);
                     const container = range.commonAncestorContainer;
                     const element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
                     
-                    // Sprawdź czy element jest edytowalny
                     if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || 
                         element.contentEditable === 'true' || element.isContentEditable) {
-                        isEditable = true;
-                        elementInfo = {
-                            tagName: element.tagName,
-                            selectionStart: element.selectionStart,
-                            selectionEnd: element.selectionEnd,
-                            elementId: element.id || null,
-                            className: element.className || null
+                        
+                        let textStart = -1;
+                        let textEnd = -1;
+                        
+                        if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                            const value = element.value;
+                            if (selectedText && value.includes(selectedText)) {
+                                textStart = value.indexOf(selectedText);
+                                textEnd = textStart + selectedText.length;
+                            }
+                        }
+                        
+                        return {
+                            text: selectedText,
+                            isEditable: true,
+                            elementInfo: {
+                                elementId: element.id || null,
+                                textStart: textStart,
+                                textEnd: textEnd
+                            }
                         };
                     }
                 }
 
-                return {
-                    text: selectedText,
-                    isEditable: isEditable,
-                    elementInfo: elementInfo
-                };
+                return { text: selectedText, isEditable: false };
             },
         });
 
